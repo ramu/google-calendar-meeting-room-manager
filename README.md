@@ -54,7 +54,7 @@ google-calendar-meeting-room-manager/
    - 「APIとサービス」→「認証情報」
    - 「認証情報を作成」→「OAuth クライアント ID」
    - アプリケーションの種類: 「ウェブアプリケーション」
-   - 承認済みのリダイレクト URI: `http://localhost:5000/auth/google/callback`
+   - 承認済みのリダイレクト URI: `http://localhost:5005/api/auth/google/callback`
    - 承認済みの JavaScript 生成元: `http://localhost:3000`
 
 ### 2. 必要なソフトウェア
@@ -95,7 +95,7 @@ NODE_ENV=development
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID=your_google_client_id_here
 GOOGLE_CLIENT_SECRET=your_google_client_secret_here
-GOOGLE_REDIRECT_URL=http://localhost:5000/auth/google/callback
+GOOGLE_REDIRECT_URL=http://localhost:5005/api/auth/google/callback
 
 # JWT Configuration
 JWT_SECRET=your_jwt_secret_here
@@ -131,7 +131,7 @@ cd backend
 npm run dev
 ```
 
-サーバーは http://localhost:5000 で起動します。
+サーバーは http://localhost:5005 で起動します。
 
 #### 2. フロントエンドの起動（別ターミナル）
 
