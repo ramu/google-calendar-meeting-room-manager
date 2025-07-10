@@ -1,17 +1,17 @@
+import dotenv from 'dotenv'
+dotenv.config()
+
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
 import rateLimit from 'express-rate-limit'
-import dotenv from 'dotenv'
 import { logger } from './utils/logger.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authRouter } from './controllers/authController.js'
 import { roomsRouter } from './controllers/roomsController.js'
 import { bookingsRouter } from './controllers/bookingsController.js'
 import { availabilityRouter } from './controllers/availabilityController.js'
-
-dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 5000

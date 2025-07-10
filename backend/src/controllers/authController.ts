@@ -4,11 +4,15 @@ import jwt from 'jsonwebtoken'
 import { logger } from '../utils/logger.js'
 
 const router = Router()
-const client = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URL
-)
+
+// Create OAuth2Client lazily to ensure environment variables are loaded
+function getOAuth2Client() {
+  return new OAuth2Client({
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri: process.env.GOOGLE_REDIRECT_URL
+  })
+}
 
 export const authRouter = router
 
@@ -21,26 +25,32 @@ router.get('/google/url', (req, res) => {
     'https://www.googleapis.com/auth/userinfo.profile'
   ]
 
+  const client = getOAuth2Client()
   const url = client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
-    prompt: 'consent'
+    prompt: 'consent',
+    redirect_uri: process.env.GOOGLE_REDIRECT_URL,
+    client_id: process.env.GOOGLE_CLIENT_ID,
   })
 
   res.json({ url })
 })
 
 // Google OAuth callback
-router.post('/google/callback', async (req, res) => {
+router.get('/google/callback', async (req, res) => {
   try {
-    const { code } = req.body
+    const { code } = req.query
 
-    if (!code) {
+    if (!code || typeof code !== 'string') {
       return res.status(400).json({ error: 'Authorization code is required' })
     }
 
-    const tokenResponse = await client.getAccessToken(code)
-    const tokens = (tokenResponse as any).tokens
+    const client = getOAuth2Client()
+    const { tokens } = await client.getToken({
+      code,
+      redirect_uri: process.env.GOOGLE_REDIRECT_URL
+    })
     
     if (!tokens.access_token) {
       return res.status(400).json({ error: 'Failed to get access token' })
@@ -71,14 +81,15 @@ router.post('/google/callback', async (req, res) => {
       name: userData.name
     })
 
-    res.json({
-      token: jwtToken,
-      user: {
-        email: userData.email,
-        name: userData.name,
-        picture: userData.picture
-      }
-    })
+    // Redirect to frontend with token in URL fragment (more secure than query params)
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+    const redirectUrl = `${frontendUrl}/auth/callback#token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
+      email: userData.email,
+      name: userData.name,
+      picture: userData.picture
+    }))}`
+    
+    res.redirect(redirectUrl)
   } catch (error) {
     logger.error('Authentication error:', error)
     res.status(500).json({ error: 'Authentication failed' })
@@ -94,6 +105,7 @@ router.post('/refresh', async (req, res) => {
       return res.status(400).json({ error: 'Refresh token is required' })
     }
 
+    const client = getOAuth2Client()
     client.setCredentials({ refresh_token: refreshToken })
     const { credentials } = await client.refreshAccessToken()
 
