@@ -94,6 +94,21 @@ class ApiClient {
     return response.data
   }
 
+  async syncRooms(options: {
+    autoFilter?: boolean
+    selectedCalendarIds?: string[]
+  } = {}): Promise<ApiResponse<{
+    synced: number
+    created: number
+    updated: number
+    errors: string[]
+    skipped: number
+    availableCalendars?: { id: string; name: string; description?: string }[]
+  }>> {
+    const response = await this.client.post('/rooms/sync', options)
+    return response.data
+  }
+
   // Booking endpoints
   async getBookings(filters?: BookingFilters): Promise<ApiResponse<Booking[]>> {
     const response = await this.client.get('/bookings', { params: filters })

@@ -113,7 +113,9 @@ router.post('/', [
     // Google Calendar でカレンダーを作成
     const calendar = await calendarService.createCalendar(req.user!.googleTokens, {
       summary: roomData.name,
-      description: roomData.description,
+      description: roomData.description ? 
+        `${roomData.description}\n\n[会議室管理システムで作成された会議室カレンダー]` : 
+        '[会議室管理システムで作成された会議室カレンダー]',
       location: roomData.location,
       timeZone: roomData.timeZone,
     })
@@ -121,7 +123,7 @@ router.post('/', [
     // データベースに保存
     const room = await roomsService.createRoom({
       ...roomData,
-      calendarId: calendar.id,
+      calendarId: calendar.id!,
     })
 
     logger.info('Room created successfully:', { roomId: room.id, calendarId: calendar.id })
@@ -235,6 +237,31 @@ router.delete('/:id', [
     logger.error('Error deleting room:', error)
     res.status(500).json({
       error: { message: 'Failed to delete room' }
+    })
+  }
+})
+
+// Google Calendarから会議室データを再同期
+router.post('/sync', async (req: Request, res: Response) => {
+  try {
+    const { autoFilter = true, selectedCalendarIds } = req.body
+    
+    const result = await roomsService.syncRoomsFromGoogleCalendar(req.user!.googleTokens, {
+      autoFilter,
+      selectedCalendarIds
+    })
+    
+    logger.info('Room sync completed:', result)
+    
+    res.json({
+      success: true,
+      message: 'Room synchronization completed',
+      data: result
+    })
+  } catch (error) {
+    logger.error('Error syncing rooms:', error)
+    res.status(500).json({
+      error: { message: 'Failed to sync rooms from Google Calendar' }
     })
   }
 })

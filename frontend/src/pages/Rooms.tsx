@@ -46,6 +46,32 @@ const Rooms: React.FC = () => {
     }
   )
 
+  const syncMutation = useMutation(
+    (options: { autoFilter?: boolean; selectedCalendarIds?: string[] } = {}) => 
+      apiClient.syncRooms(options),
+    {
+      onSuccess: (response) => {
+        queryClient.invalidateQueries('rooms')
+        if (response.data) {
+          const { synced, created, updated, errors, skipped } = response.data
+          
+          let message = `同期完了: ${synced}件処理 (新規: ${created}件, 更新: ${updated}件)`
+          if (skipped > 0) {
+            message += `, ${skipped}件スキップ`
+          }
+          if (errors.length > 0) {
+            message += `\n警告: ${errors.length}件のエラーがありました`
+          }
+          alert(message)
+        }
+      },
+      onError: (error) => {
+        console.error('Sync error:', error)
+        alert('同期に失敗しました')
+      },
+    }
+  )
+
   const handleCreate = (data: RoomFormData) => {
     createMutation.mutate(data)
   }
@@ -59,6 +85,12 @@ const Rooms: React.FC = () => {
   const handleDelete = (roomId: string) => {
     if (window.confirm('この会議室を削除しますか？')) {
       deleteMutation.mutate(roomId)
+    }
+  }
+
+  const handleSync = () => {
+    if (window.confirm('Google Calendarから会議室データを同期しますか？\n\n会議室っぽいカレンダーのみを自動で選択します。')) {
+      syncMutation.mutate({ autoFilter: true })
     }
   }
 
@@ -82,12 +114,21 @@ const Rooms: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">会議室管理</h1>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="btn btn-primary"
-        >
-          会議室を追加
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={handleSync}
+            disabled={syncMutation.isLoading}
+            className="btn btn-secondary"
+          >
+            {syncMutation.isLoading ? '同期中...' : 'Google Calendarから同期'}
+          </button>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="btn btn-primary"
+          >
+            会議室を追加
+          </button>
+        </div>
       </div>
 
       {showCreateForm && (

@@ -184,7 +184,7 @@ router.post('/', [
 
     // データベースに保存
     const booking = await bookingsService.createBooking({
-      eventId: event.id,
+      eventId: event.id!,
       calendarId: room.calendarId,
       roomId,
       title,

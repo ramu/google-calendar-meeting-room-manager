@@ -291,6 +291,162 @@ class RoomsService {
       throw error
     }
   }
+
+  // 会議室カレンダーかどうかを判別
+  private isRoomCalendar(calendar: any): boolean {
+    const name = calendar.summary?.toLowerCase() || ''
+    const description = calendar.description?.toLowerCase() || ''
+    
+    // 会議室キーワード
+    const roomKeywords = ['会議室', '会議', 'meeting', 'room', 'conference', 'ミーティング']
+    
+    // 除外キーワード（一般的なイベントカレンダー）
+    const excludeKeywords = ['勉強会', 'study', 'event', 'イベント', 'セミナー', 'workshop']
+    
+    // 除外キーワードが含まれていたら除外
+    if (excludeKeywords.some(keyword => name.includes(keyword) || description.includes(keyword))) {
+      return false
+    }
+    
+    // 会議室キーワードが含まれていたら会議室として判定
+    if (roomKeywords.some(keyword => name.includes(keyword) || description.includes(keyword))) {
+      return true
+    }
+    
+    // このアプリで作成されたカレンダーは会議室として判定
+    if (description.includes('meeting room manager') || description.includes('会議室管理')) {
+      return true
+    }
+    
+    return false
+  }
+
+  // Google Calendarから会議室データを再同期
+  async syncRoomsFromGoogleCalendar(tokens: any, options: {
+    autoFilter?: boolean;
+    selectedCalendarIds?: string[];
+  } = {}): Promise<{ 
+    synced: number; 
+    created: number; 
+    updated: number; 
+    errors: string[];
+    skipped: number;
+    availableCalendars?: { id: string; name: string; description?: string }[];
+  }> {
+    try {
+      const { calendarService } = await import('./calendarService.js')
+      const calendars = await calendarService.getCalendarList(tokens)
+      
+      let synced = 0
+      let created = 0
+      let updated = 0
+      let skipped = 0
+      const errors: string[] = []
+      const availableCalendars: { id: string; name: string; description?: string }[] = []
+      
+      // 利用可能なカレンダーリストを作成
+      for (const calendar of calendars) {
+        if (!calendar.primary && calendar.summary && calendar.id?.includes('@group.calendar.google.com')) {
+          availableCalendars.push({
+            id: calendar.id,
+            name: calendar.summary,
+            description: calendar.description
+          })
+        }
+      }
+      
+      // 手動選択モードの場合、利用可能なカレンダーリストを返す
+      if (options.selectedCalendarIds) {
+        return {
+          synced: 0,
+          created: 0,
+          updated: 0,
+          errors: [],
+          skipped: 0,
+          availableCalendars
+        }
+      }
+      
+      for (const calendar of calendars) {
+        try {
+          // プライマリカレンダーやシステムカレンダーを除外
+          if (calendar.primary || !calendar.summary || !calendar.id?.includes('@group.calendar.google.com')) {
+            continue
+          }
+          
+          // 自動フィルタリング有効時は会議室カレンダーのみを処理
+          if (options.autoFilter !== false && !this.isRoomCalendar(calendar)) {
+            skipped++
+            logger.debug('Skipped non-room calendar:', { 
+              calendarId: calendar.id,
+              name: calendar.summary
+            })
+            continue
+          }
+          
+          // 既存の会議室を検索
+          const existingRoom = await this.store.findByCalendarId(calendar.id!)
+          
+          if (existingRoom) {
+            // 既存の会議室を更新
+            const updateData: UpdateMeetingRoomData = {
+              name: calendar.summary,
+              description: calendar.description || undefined,
+              location: calendar.location || undefined,
+              timeZone: calendar.timeZone || 'Asia/Tokyo'
+            }
+            
+            await this.store.update(existingRoom.id, updateData)
+            updated++
+            logger.info('Room updated from Google Calendar:', { 
+              roomId: existingRoom.id, 
+              calendarId: calendar.id 
+            })
+          } else {
+            // 新しい会議室を作成
+            const roomData: CreateMeetingRoomData = {
+              name: calendar.summary,
+              calendarId: calendar.id!,
+              description: calendar.description || undefined,
+              location: calendar.location || undefined,
+              capacity: 6, // デフォルト値
+              equipment: [], // デフォルト値
+              timeZone: calendar.timeZone || 'Asia/Tokyo'
+            }
+            
+            await this.store.create(roomData)
+            created++
+            logger.info('Room created from Google Calendar:', { 
+              calendarId: calendar.id,
+              name: calendar.summary
+            })
+          }
+          
+          synced++
+        } catch (error) {
+          const errorMessage = `Failed to sync calendar ${calendar.summary}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          errors.push(errorMessage)
+          logger.error('Error syncing calendar:', { 
+            calendarId: calendar.id,
+            error: errorMessage
+          })
+        }
+      }
+      
+      logger.info('Google Calendar sync completed:', { 
+        synced, 
+        created, 
+        updated, 
+        skipped,
+        errors: errors.length 
+      })
+      
+      return { synced, created, updated, errors, skipped }
+    } catch (error) {
+      logger.error('Error syncing rooms from Google Calendar:', error)
+      throw error
+    }
+  }
 }
 
 export const roomsService = new RoomsService()
