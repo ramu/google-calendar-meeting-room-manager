@@ -2,6 +2,8 @@
 
 Google Calendar API v3 を利用した会議室管理 Web サービスです。
 
+動作検証用途なので claude code にざっと作らせてます。
+
 ## 🏗️ プロジェクト構成
 
 ```
