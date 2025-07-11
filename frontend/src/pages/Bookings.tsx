@@ -27,12 +27,15 @@ const Bookings: React.FC = () => {
     }
   )
 
-  const createMutation = useMutation(apiClient.createBooking, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('bookings')
-      setShowCreateForm(false)
-    },
-  })
+  const createMutation = useMutation(
+    (data: any) => apiClient.createBooking(data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('bookings')
+        setShowCreateForm(false)
+      },
+    }
+  )
 
   const updateMutation = useMutation(
     ({ id, data }: { id: string; data: any }) => apiClient.updateBooking(id, data),
@@ -44,11 +47,14 @@ const Bookings: React.FC = () => {
     }
   )
 
-  const deleteMutation = useMutation(apiClient.deleteBooking, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('bookings')
-    },
-  })
+  const deleteMutation = useMutation(
+    (bookingId: string) => apiClient.deleteBooking(bookingId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('bookings')
+      },
+    }
+  )
 
   const handleCreate = (data: BookingFormData) => {
     const startTime = new Date(`${data.startDate}T${data.startTime}`)

@@ -17,12 +17,15 @@ const Rooms: React.FC = () => {
     }
   )
 
-  const createMutation = useMutation(apiClient.createRoom, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('rooms')
-      setShowCreateForm(false)
-    },
-  })
+  const createMutation = useMutation(
+    (data: RoomFormData) => apiClient.createRoom(data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('rooms')
+        setShowCreateForm(false)
+      },
+    }
+  )
 
   const updateMutation = useMutation(
     ({ id, data }: { id: string; data: any }) => apiClient.updateRoom(id, data),
@@ -34,11 +37,14 @@ const Rooms: React.FC = () => {
     }
   )
 
-  const deleteMutation = useMutation(apiClient.deleteRoom, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('rooms')
-    },
-  })
+  const deleteMutation = useMutation(
+    (roomId: string) => apiClient.deleteRoom(roomId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('rooms')
+      },
+    }
+  )
 
   const handleCreate = (data: RoomFormData) => {
     createMutation.mutate(data)
